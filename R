@@ -1,0 +1,57 @@
+#EXTRAIR DADOS NETCDF DE RELÂMPAGOS
+
+install.packages("ncdf4")
+install.packages('readr')
+install.packages('dplyr')
+install.packages('tidyr')
+install.packages('ggplot')
+install.packages('ggplot2')
+install.packages('lattice')
+install.packages('rgdal')
+install.packages('raster')
+install.packages('sf')
+
+
+
+library(ncdf4)
+require(ncdf4)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(lattice)
+library(rgdal)
+library(raster)
+library(sf)
+library(sp)
+library(writexl)
+
+ncin <- nc_open("D:/TCC-REL/Arquivos/total/VHRFC.nc")
+attributes(ncin$var$VHRFC_LIS_FRD)
+lon <- ncvar_get( ncin,"Longitude")
+lat <- ncvar_get( ncin, "Latitude")
+tmp.array<- ncvar_get( ncin, "VHRFC_LIS_FRD")
+dunits<- ncatt_get( ncin, "VHRSC_LIS_FRD","units")
+tunits<- ncatt_get( ncin, "time","units")
+nc_close(ncin)
+
+### Cortando uma area do globo (NÃO ALTERAR AS COORDENADAS)
+r <- raster(t(tmp.array), xmn=min(lon), xmx=max(lon), ymn=min(lat), ymx=max(lat), crs=CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs+ towgs84=0,0,0"))
+r <- flip(r, direction='y')
+rcor = crop(r,extent(-60,-33,-40,-5))
+plot(rcor)
+######## cortando raster para o sao francisco
+ncin = as.data.frame(rcor, xy=TRUE)%>%drop_na()
+area = read_sf('D:/TCC-REL/Dados/shapessf/nm_mesoRH_Submédio São Francisco.gpkg')
+lsf = rcor %>% crop(area) %>% mask(area)
+
+#exportando o shape
+writeRaster(lsf, 'D:/TCC-REL/Dados/VHRFC_SUBMEDIO.nc', format('CDF'))
+
+###### exportando dados para xlsx
+teste = as.data.frame(lsf, xy=TRUE)%>%drop_na()
+write_xlsx(teste,'D:/TCC-REL/Dados/VHRFC_SUBMEDIO.xlsx')
+
+#plotando para teste
+plot(lsf,main='Densidade Total da Taxa de Relâmpagos(FRD) na BHRSF')
+
